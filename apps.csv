@@ -1,0 +1,105 @@
+backup,syncthing,open source continuous replication / cluster synchronization thing
+bluetooth,bluez,bluetooth protocol stack
+bluetooth,bluez-utils,bluetoothctl utility
+control,brightnessctl,control backlight
+control,playerctl,control media
+control,udiskie,automount devices
+control,pcsclite,PC/SC Architecture smartcard middleware library
+docker,dive,docker image explorer
+docker,docker,run containers
+docker,docker-compose,run containers
+docs,man-db,manual
+docs,man-pages,manual pages
+docs,texinfo,gnu documentation system
+docs,tldr,examples for clis
+editor,neovim,editor
+fonts,noto-fonts-emoji,emoji font
+fonts,otf-font-awesome,font awesome
+fonts,ttf-hack-nerd,hack nerd font
+gui,firefox,firefox
+gui,nvidia,nvidia drivers
+gui,obsidian,knowledge base
+gui,polkit-kde-agent,polkit agent
+gui,thunderbird,thunderbird
+gui-wayland,grim,screenshot tool
+gui-wayland,hyprland,hyprland compositor
+gui-wayland,hyprpaper,hyprland wallpaper manager
+gui-wayland,kanshi,dynamic display configuration
+gui-wayland,lavalauncher,simple launcher
+gui-wayland,light,backlight-control
+gui-wayland,mako,notification daemon
+gui-wayland,qt5-wayland,qt5 wayland
+gui-wayland,qt6-wayland,qt6 wayland
+gui-wayland,slurp,region selector
+gui-wayland,swappy,screenshot editor
+gui-wayland,swaylock,lock screen
+gui-wayland,waybar,status bar
+gui-wayland,wayland,display server
+gui-wayland,wdisplays,display configuration
+gui-wayland,wf-recorder,screen recorder
+gui-wayland,wl-clipboard,clipboard manager
+gui-wayland,wlr-randr,output management
+gui-wayland,wofi,run menu
+gui-wayland,xdg-desktop-portal-hyprland-git,xdg desktop portal
+gui-xorg,arandr,GUI for X RandR
+gui-xorg,autorandr,auto display configuration
+gui-xorg,betterlockscreen,lock screen
+gui-xorg,i3wm,tiled window manager
+gui-xorg,picom,compositor
+gui-xorg,polybar,status bar
+gui-xorg,rofi,run menu
+gui-xorg,xautolock,screen locker
+gui-xorg,xclip,clipboard manager
+gui-xorg,xfce4-power-manager,power management
+gui-xorg,xorg,display server
+gui-xorg,xorg-server,core server package
+gui-xorg,xorg-xinit,X initialization
+gui-xorg,xrandr,command line interface to RandR extension
+gui-xorg,xsel,clipboard manager
+kubernetes,kubectl,k8s cli
+multimedia,lltag,tag mp3 files
+multimedia,mpd,music player daemon
+multimedia,mpv,media player
+multimedia,ncmpcpp,ncurses mpd client
+multimedia,nsxiv,image viewer
+multimedia,pulsemixer,cli mixer for pulseaudio
+mysql,mycli,mysql cli
+networking,curl,data transfer lib and cli
+networking,net-tools,arp
+networking,hurl-bin,API client
+networking,openssh,remote login tool for ssh protocol
+networking,sshfs,filesystem client based on sshfs
+networking,tailscale,a mesh vpn that makes it easy to connect your devices wherever they are.
+networking,wget,download files
+notifications,dunst,notification system
+notifications,libnotify,notifier
+postgres,pgcli,postgres cli
+second-brain,calcurse,tui calendar
+second-brain,neomutt,cli mail client
+second-brain,newsboat,rss feed reader
+second-brain,zathura-pdf-mupdf,pdf reader
+security,bitwarden-cli,bitwarden cli
+security,gpg,gpg
+shell,alacritty,a cross-platform gpu-accelerated terminal emulator
+shell,bleachbit-cli,Deletes unneeded files to free disk space and maintain privacy
+shell,fd,faster alternative to find
+shell,fzf,command line fuzzy finder
+shell,git,version control system
+shell,lf,file browser
+shell,shellcheck,bash linter
+shell,lynx,terminal web browser
+shell,moreutils,unix tools including vidir
+shell,ripgrep-all,faster alternative to grep
+shell,tmux,terminal multiplexer
+shell,tmuxp,configure tmux session + windows + panes via config files
+shell,urlscan,open urls in terminal
+shell,urlview,open urls in terminal
+shell,zsh,unix shell (z-shell)
+shell,zsh-autosuggestions,fish-like autosuggestions for zsh
+shell,zsh-syntax-highlighting,fish shell like syntax highlighting for zsh
+sound-system,alsa-utils,advanced linux sound architecture - utilities
+sound-system,pipewire,low level multimedia framework
+sound-system,pipewire-alsa,low-latency audio/video router and processor - alsa configuration
+sound-system,pipewire-audio,audio processor and router
+sound-system,wireplumber,session manager and policy engine for pipewire
+torrents,tranmission-cli,lightweight bittorrent client
