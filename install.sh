@@ -2,7 +2,12 @@
 set -euo pipefail
 set -x
 
-INSTALLER_URL="https://raw.githubusercontent.com/gustaf-ag47/install-arch/master/arch-linux"
+# NOTE: no trailing path segment -- chroot.sh and post_install_root.sh live at the
+# repo root. A stale "/arch-linux" suffix here made every fetch 404, and because
+# curl without -f exits 0 on HTTP errors, `set -e` did not catch it: the 404 body
+# was written to chroot.sh and executed, producing a system with no bootloader.
+# Overridable so a test harness can point at a local tree instead of GitHub.
+INSTALLER_URL="${INSTALLER_URL:-https://raw.githubusercontent.com/gustaf-ag47/install-arch/master}"
 
 HOSTNAME="arch"
 ROOT_PASSWORD="pass"
@@ -99,7 +104,7 @@ chroot() {
 	echo "$ROOT_PASSWORD" >/mnt/var_root_password
 	echo "$UEFI" >/mnt/var_uefi
 
-	curl "$INSTALLER_URL/chroot.sh" >/mnt/chroot.sh
+	curl -fsSL "$INSTALLER_URL/chroot.sh" >/mnt/chroot.sh
 	arch-chroot /mnt bash chroot.sh
 }
 
@@ -122,7 +127,7 @@ configure_system() {
 }
 
 prepare_post_install() {
-	curl "$INSTALLER_URL/post_install_root.sh" >/mnt/root/post_install_root.sh
+	curl -fsSL "$INSTALLER_URL/post_install_root.sh" >/mnt/root/post_install_root.sh
 }
 
 cleanup_and_reboot() {

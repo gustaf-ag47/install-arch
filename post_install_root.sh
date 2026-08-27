@@ -6,7 +6,7 @@ USERNAME=""
 PASSWORD=""
 PASSWORD_CONFIRM=""
 
-INSTALLER_URL="https://raw.githubusercontent.com/gustaf-ag47/install-arch/master"
+INSTALLER_URL="${INSTALLER_URL:-https://raw.githubusercontent.com/gustaf-ag47/install-arch/master}"
 SUDOERS="%wheel ALL=(ALL) NOPASSWD: ALL"
 
 USER_SCRIPT="post_install_user.sh"
@@ -46,7 +46,7 @@ install_package() {
 }
 
 install_packages() {
-	curl "$INSTALLER_URL/$APPS_CSV" >"$FP_APPS_CSV"
+	curl -fsSL "$INSTALLER_URL/$APPS_CSV" >"$FP_APPS_CSV"
 	while IFS=, read -r category package description; do
 		install_package "$package"
 	done <$FP_APPS_CSV
@@ -65,7 +65,7 @@ change_shell() {
 }
 
 user() {
-	curl "$INSTALLER_URL/$USER_SCRIPT" >$FP_USER_SCRIPT
+	curl -fsSL "$INSTALLER_URL/$USER_SCRIPT" >$FP_USER_SCRIPT
 	sudo -u "$USERNAME" sh "$FP_USER_SCRIPT"
 }
 
