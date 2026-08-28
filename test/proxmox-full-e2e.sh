@@ -17,7 +17,9 @@
 set -uo pipefail
 
 VMID="${VMID:-990}"
-PVE_IP="${PVE_IP:-192.168.1.122}"
+# Proxmox host address. Required: set PVE_IP=<host> (no default, so this
+# public repo does not carry a private LAN address).
+PVE_IP="${PVE_IP:?set PVE_IP to your Proxmox host, e.g. PVE_IP=10.0.0.5}"
 LOG="/tmp/${VMID}-serial.log"
 FIFO="/tmp/${VMID}.in"
 BASE="http://$PVE_IP:8099"
