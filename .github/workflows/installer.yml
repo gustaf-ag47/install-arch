@@ -1,0 +1,108 @@
+name: installer
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+  workflow_dispatch:
+  schedule:
+    # Weekly. Off the hour: GitHub delays and can drop scheduled runs at :00.
+    # On a public repo this is auto-disabled after 60 days of no repository
+    # activity -- re-enable under Actions -> installer -> Enable workflow.
+    - cron: "37 5 * * 2"
+
+concurrency:
+  group: installer-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+
+jobs:
+  lint:
+    name: shellcheck + bash -n
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+      - run: |
+          rc=0
+          for f in ./*.sh test/*.sh arch_apps/*.sh; do
+            [ -f "$f" ] || continue
+            if bash -n "$f"; then echo "ok   $f"; else echo "FAIL $f"; rc=1; fi
+          done
+          exit $rc
+      - run: |
+          sudo apt-get update -qq && sudo apt-get install -y -qq shellcheck
+          shellcheck -S warning ./*.sh test/*.sh
+
+  no-unchecked-curl:
+    name: every curl must use -f
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v5
+      - name: reject curl without -f
+        run: |
+          # Two separate outages in this repo came from the same shape: curl
+          # without -f exits 0 on an HTTP error, so `set -e` does not fire and
+          # the error BODY is written to the destination and then executed or
+          # untarred.
+          #   - chroot.sh was a 14-byte "404: Not Found" run as a shell script
+          #     -> installs with no bootloader and no root password
+          #   - an AUR snapshot 404 was saved as <pkg>.tar.gz
+          #     -> "gzip: stdin: not in gzip format"
+          if grep -rnE '\bcurl\b' --include='*.sh' . \
+             | grep -v '\-[a-zA-Z]*f' \
+             | grep -v '^\./test/' | tee /tmp/bad; then
+            if [ -s /tmp/bad ]; then
+              echo "::error::curl without -f (see above): it exits 0 on HTTP errors"
+              exit 1
+            fi
+          fi
+          echo "all curl invocations use -f"
+
+  declared-deps:
+    name: dependencies are installed
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+      - name: every tool the scripts need is in apps.csv or pacstrap
+        run: |
+          # rsync (dotfiles make install) and unzip (fnm) were each missing
+          # here and each aborted a real install partway through.
+          rc=0
+          for dep in rsync unzip git zsh curl; do
+            if grep -qE "^[a-z]+,$dep," apps.csv || grep -q "pacstrap.*\b$dep\b" install.sh; then
+              echo "ok   $dep"
+            else
+              echo "FAIL $dep is used but installed by neither apps.csv nor pacstrap"
+              rc=1
+            fi
+          done
+          exit $rc
+
+  apps-csv-resolves:
+    name: every apps.csv package still exists
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v5
+      - name: resolve each package against today's Arch repos
+        run: |
+          # The drift canary. Catches renamed/dropped packages BEFORE a real
+          # install hits them. Anything unresolvable here falls through to the
+          # AUR path at install time, which is where the 404-as-tarball bug bit.
+          docker run --rm --pull=always -v "$PWD:/src:ro" archlinux:latest bash -c '
+            pacman -Sy --noconfirm >/dev/null 2>&1
+            missing=""
+            while IFS=, read -r category package description; do
+              [ -n "$package" ] || continue
+              pacman -Si "$package" >/dev/null 2>&1 || missing="$missing $package"
+            done < /src/apps.csv
+            if [ -n "$missing" ]; then
+              echo "::warning::not in the official repos (expected to come from the AUR):$missing"
+            fi
+            echo "apps.csv checked"
+          '

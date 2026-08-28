@@ -18,7 +18,7 @@ fonts,noto-fonts-emoji,emoji font
 fonts,otf-font-awesome,font awesome
 fonts,ttf-hack-nerd,hack nerd font
 gui,firefox,firefox
-gui,nvidia,nvidia drivers
+gui,nvidia-open,nvidia drivers
 gui,obsidian,knowledge base
 gui,polkit-kde-agent,polkit agent
 gui,thunderbird,thunderbird
@@ -45,7 +45,7 @@ gui-wayland,xdg-desktop-portal-hyprland-git,xdg desktop portal
 gui-xorg,arandr,GUI for X RandR
 gui-xorg,autorandr,auto display configuration
 gui-xorg,betterlockscreen,lock screen
-gui-xorg,i3wm,tiled window manager
+gui-xorg,i3-wm,tiled window manager
 gui-xorg,picom,compositor
 gui-xorg,polybar,status bar
 gui-xorg,rofi,run menu
@@ -55,7 +55,7 @@ gui-xorg,xfce4-power-manager,power management
 gui-xorg,xorg,display server
 gui-xorg,xorg-server,core server package
 gui-xorg,xorg-xinit,X initialization
-gui-xorg,xrandr,command line interface to RandR extension
+gui-xorg,xorg-xrandr,command line interface to RandR extension
 gui-xorg,xsel,clipboard manager
 kubernetes,kubectl,k8s cli
 multimedia,lltag,tag mp3 files
@@ -80,7 +80,7 @@ second-brain,neomutt,cli mail client
 second-brain,newsboat,rss feed reader
 second-brain,zathura-pdf-mupdf,pdf reader
 security,bitwarden-cli,bitwarden cli
-security,gpg,gpg
+security,gnupg,gpg
 shell,alacritty,a cross-platform gpu-accelerated terminal emulator
 shell,bleachbit-cli,Deletes unneeded files to free disk space and maintain privacy
 shell,fd,faster alternative to find
@@ -104,6 +104,6 @@ sound-system,pipewire,low level multimedia framework
 sound-system,pipewire-alsa,low-latency audio/video router and processor - alsa configuration
 sound-system,pipewire-audio,audio processor and router
 sound-system,wireplumber,session manager and policy engine for pipewire
-torrents,tranmission-cli,lightweight bittorrent client
+torrents,transmission-cli,lightweight bittorrent client
 shell,tokei,count-lines
 latex,texlive-binextra,latexmk, pdflatex

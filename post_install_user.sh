@@ -115,7 +115,7 @@ install_tailscale() {
 }
 
 install_python() {
-	curl https://pyenv.run | bash
+	curl -fsSL https://pyenv.run | bash
 
 	# Do NOT source the zsh rc here: this is bash under `set -euo pipefail`, and
 	# .zshrc references zsh-only vars (fpath) plus $ZDOTDIR, which is unset in a
@@ -127,7 +127,7 @@ install_python() {
 	pyenv install 3.11
 	pyenv global 3.11
 
-	curl -sSL https://install.python-poetry.org | python3 -
+	curl -fsSL https://install.python-poetry.org | python3 -
 }
 
 install_node() {

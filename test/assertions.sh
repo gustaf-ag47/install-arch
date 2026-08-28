@@ -45,7 +45,7 @@ echo "--- env resolves in a real zsh ---"
 GOT_DOT="$(zsh -ic 'printf %s "$DOTFILES"' 2>/dev/null)"
 [ "$GOT_DOT" = "$DOT" ] && ok "\$DOTFILES resolves to $GOT_DOT" || bad "\$DOTFILES was '$GOT_DOT' (want $DOT)"
 GOT_PATH="$(zsh -ic 'case ":$PATH:" in *:$HOME/.local/bin:*) echo yes;; *) echo no;; esac' 2>/dev/null)"
-[ "$GOT_PATH" = yes ] && ok "~/.local/bin on PATH" || bad "~/.local/bin not on PATH"
+[ "$GOT_PATH" = yes ] && ok "local/bin on PATH" || bad "local/bin not on PATH"
 
 echo "--- token layer wiring ---"
 grep -q 'CCTOKEN_FILE' "$HOME/.local/bin/claude-token-refresh" && ok "token-refresh reads CCTOKEN_FILE" || bad "token-refresh missing CCTOKEN_FILE"

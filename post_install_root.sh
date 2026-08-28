@@ -46,6 +46,7 @@ install_package() {
 
 install_packages() {
 	curl -fsSL "$INSTALLER_URL/$APPS_CSV" >"$FP_APPS_CSV"
+	# shellcheck disable=SC2034  # category/description are positional CSV fields
 	while IFS=, read -r category package description; do
 		install_package "$package"
 	done <$FP_APPS_CSV

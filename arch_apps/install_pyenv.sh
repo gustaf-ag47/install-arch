@@ -20,7 +20,7 @@ install_pyenv() {
 # Function to install poetry
 install_poetry() {
 	echo "Installing poetry..."
-	curl -sSL https://raw.githubusercontent.com/python-poetry/poetry/master/get-poetry.py | python -
+	curl -fsSL https://raw.githubusercontent.com/python-poetry/poetry/master/get-poetry.py | python -
 
 	echo 'export PATH="$HOME/.poetry/bin:$PATH"' >>~/.bashrc
 
