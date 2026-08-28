@@ -93,6 +93,7 @@ shell,moreutils,unix tools including vidir
 shell,ripgrep-all,faster alternative to grep
 shell,tmux,terminal multiplexer
 shell,tmuxp,configure tmux session + windows + panes via config files
+shell,unzip,extract zip archives (required by the fnm/node installer)
 shell,urlscan,open urls in terminal
 shell,urlview,open urls in terminal
 shell,zsh,unix shell (z-shell)

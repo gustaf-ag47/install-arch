@@ -4,22 +4,34 @@ set -euo pipefail
 set -x
 
 process_aur_queue() {
-	aur_install() {
+	# Subshell: a failed build leaves the cwd inside the extracted package dir
+	# (`cd -` never runs), which then breaks every later package.
+	aur_install() (
 		echo "Installing $1 from AUR"
-		curl -O "https://aur.archlinux.org/cgit/aur.git/snapshot/$1.tar.gz" &&
+		# -f matters: a name that is in neither the repos nor the AUR (e.g. a
+		# typo, or "nvidia", which pacman could not find) returns a 404 HTML
+		# page. Without -f curl happily writes it to $1.tar.gz and tar dies with
+		# "gzip: stdin: not in gzip format" -- the same 404-as-payload bug that
+		# once produced a system with no bootloader.
+		curl -fsSL -O "https://aur.archlinux.org/cgit/aur.git/snapshot/$1.tar.gz" &&
 			tar -xvf "$1.tar.gz" &&
 			cd "$1" &&
 			makepkg --noconfirm -si &&
 			cd - &&
 			rm -rf "$1" "$1.tar.gz"
-	}
+	)
 
 	aur_check() {
 		qm=$(pacman -Qm | awk '{print $1}')
 		for arg in "$@"; do
 			if [[ $qm != *"$arg"* ]]; then
+				# One unresolvable package must not abort the whole post-install.
+				# This runs under `set -e`, so before the trailing `|| echo` a
+				# single bad entry in apps.csv killed everything after it:
+				# no bluetooth, no docker, no tailscale, no pyenv, no node.
 				paru --noconfirm -S "$arg" &>>/tmp/aur_install ||
-					aur_install "$arg" &>>/tmp/aur_install
+					aur_install "$arg" &>>/tmp/aur_install ||
+					echo "warning: skipping $arg (not in the repos or the AUR)" >&2
 			fi
 		done
 	}
@@ -54,10 +66,21 @@ install_dotfiles() {
 	make install
 }
 
+# `make install` rsyncs the clone to $DOTFILES (~/sync/src/dotfiles) and then
+# deletes the original ~/dotfiles, so anything that later assumes ~/dotfiles is
+# cd'ing into a directory that no longer exists.
+dotfiles_dir() {
+	if [ -d "$HOME/sync/src/dotfiles" ]; then
+		echo "$HOME/sync/src/dotfiles"
+	else
+		echo "$HOME/dotfiles"
+	fi
+}
+
 bootstrap_sync() {
 	# Bootstrap Syncthing with YubiKey-encrypted config
 	# This sets up sync with existing machines
-	cd "$HOME/dotfiles"
+	cd "$(dotfiles_dir)"
 
 	if [ -f "./scripts/bootstrap-sync.sh" ]; then
 		echo ""
