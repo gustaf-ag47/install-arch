@@ -45,11 +45,34 @@ set_keymap() {
 }
 
 install_dotfiles() {
-	git clone https://github.com/cl4irv0yant/dotfiles.git >"$HOME"
+	# Pinnable so a test run (or a rollback) can install a known ref instead of
+	# whatever master happens to be.
+	git clone --branch "${DOTFILES_REF:-master}" \
+		"${DOTFILES_REPO:-https://github.com/gustaf-ag47/dotfiles.git}" "$HOME/dotfiles"
 
 	cd "$HOME/dotfiles"
 	make install
+}
 
+bootstrap_sync() {
+	# Bootstrap Syncthing with YubiKey-encrypted config
+	# This sets up sync with existing machines
+	cd "$HOME/dotfiles"
+
+	if [ -f "./scripts/bootstrap-sync.sh" ]; then
+		echo ""
+		echo "=== Syncthing Bootstrap ==="
+		echo "This will set up sync with your existing machines."
+		echo "You'll need your YubiKey if you have encrypted config."
+		echo ""
+		read -p "Run Syncthing bootstrap now? [Y/n] " -n 1 -r
+		echo
+		if [[ ! $REPLY =~ ^[Nn]$ ]]; then
+			./scripts/bootstrap-sync.sh
+		else
+			echo "Skipped. Run later with: ~/dotfiles/scripts/bootstrap-sync.sh"
+		fi
+	fi
 }
 
 install_bluetooth() {
@@ -71,7 +94,12 @@ install_tailscale() {
 install_python() {
 	curl https://pyenv.run | bash
 
-	source "$ZDOTDIR/.zshrc"
+	# Do NOT source the zsh rc here: this is bash under `set -euo pipefail`, and
+	# .zshrc references zsh-only vars (fpath) plus $ZDOTDIR, which is unset in a
+	# non-login bash shell -- `set -u` then aborts the whole post-install run.
+	export PYENV_ROOT="$HOME/.pyenv"
+	export PATH="$PYENV_ROOT/bin:$PATH"
+	eval "$(pyenv init -)"
 
 	pyenv install 3.11
 	pyenv global 3.11
@@ -86,13 +114,15 @@ install_node() {
 main() {
 	install_dotfiles
 	set_keymap
-	install_python
 	process_aur_queue
 	install_bluetooth
-	install_python
 	install_docker
 	install_tailscale
+	install_python
 	install_node
+
+	# Last step: bootstrap sync with existing machines
+	bootstrap_sync
 }
 
 main

@@ -2,8 +2,9 @@
 set -euo pipefail
 set -x
 
-USERNAME=""
-PASSWORD=""
+# Overridable so an unattended/test run can supply them without a TTY.
+USERNAME="${USERNAME:-}"
+PASSWORD="${PASSWORD:-}"
 PASSWORD_CONFIRM=""
 
 INSTALLER_URL="${INSTALLER_URL:-https://raw.githubusercontent.com/gustaf-ag47/install-arch/master}"
@@ -16,26 +17,24 @@ FP_APPS_CSV="/tmp/$APPS_CSV"
 FP_AUR_QUEUE="/tmp/aur_queue"
 
 user_input() {
-	if [ -z "$USERNAME" ]; then
-		while true; do
-			read -rsp "Enter username: " USERNAME
-		done
-	fi
+	# NB: the username loop previously had no break and used -s (silent), so it
+	# spun forever reading invisible input. It was also never called from main(),
+	# leaving USERNAME empty and making useradd fail with "invalid user name ''".
+	while [ -z "$USERNAME" ]; do
+		read -rp "Enter username: " USERNAME
+	done
 
-	if [ -z "$PASSWORD" ]; then
-		while true; do
-			read -rsp "Enter password: " PASSWORD
-			echo
-			read -rsp "Confirm password: " PASSWORD_CONFIRM
-			echo
+	while [ -z "$PASSWORD" ]; do
+		read -rsp "Enter password: " PASSWORD
+		echo
+		read -rsp "Confirm password: " PASSWORD_CONFIRM
+		echo
 
-			if [ "$PASSWORD" = "$PASSWORD_CONFIRM" ]; then
-				break
-			else
-				echo "Passwords do not match. Please try again."
-			fi
-		done
-	fi
+		if [ "$PASSWORD" != "$PASSWORD_CONFIRM" ]; then
+			echo "Passwords do not match. Please try again."
+			PASSWORD=""
+		fi
+	done
 }
 
 install_package() {
@@ -70,6 +69,7 @@ user() {
 }
 
 main() {
+	user_input
 	install_packages
 	user_and_groups
 	change_shell
