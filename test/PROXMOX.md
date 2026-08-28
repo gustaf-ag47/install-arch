@@ -20,7 +20,35 @@ systemd as PID 1**. Verified 2026-08-27:
 | Boot to userspace | `Arch Linux 7.1.9-arch1-2 (tty1)` / `arch login:` |
 | Root login | `[root@arch ~]#` |
 
-## Run it
+## Run it (single shot, blank disk -> dotfiles installed)
+
+`test/proxmox-full-e2e.sh` does the whole thing in one uninterrupted pass:
+wipes the disk, installs, reboots, runs the post-install chain, asserts, and
+takes a VGA screendump. Serve both working trees first so unpushed code is what
+actually gets tested:
+
+```bash
+# on skrubben
+rsync -a --exclude .git ./ root@$PVE:/root/install-arch-test/
+git clone --bare ../dotfiles /tmp/dotfiles.git
+(cd /tmp/dotfiles.git && git update-server-info)   # dumb-HTTP clone needs this
+rsync -a /tmp/dotfiles.git root@$PVE:/root/install-arch-test/
+scp test/proxmox-full-e2e.sh root@$PVE:/root/full-e2e.sh
+ssh root@$PVE 'systemd-run --unit=arch-e2e-http \
+  --property=WorkingDirectory=/root/install-arch-test \
+  /usr/bin/python3 -m http.server 8099 --bind 0.0.0.0'
+ssh root@$PVE 'nohup bash /root/full-e2e.sh > /root/full-run.log 2>&1 &'
+```
+
+A full pass is ~25 min on pve. Two fixtures are applied to the guest, neither of
+which changes the installer's own code path:
+
+- `/etc/sudoers.d/e2e_env` — `sudo`'s `env_reset` would otherwise drop
+  `DOTFILES_REPO` before `post_install_user.sh` runs under `sudo -u $USER`, and
+  the guest would silently clone GitHub master instead of the tree under test.
+- `test/fixtures/reboot-shim.sh` — see gotcha 5.
+
+## Run just the install phase
 
 ```bash
 # on skrubben
@@ -88,3 +116,13 @@ for k in p a s s ret; do echo "sendkey $k" | qm monitor 990; sleep 0.3; done
    hook — setting `PS1` does nothing. The harness `exec bash --norc --noprofile`
    first, and must send that *alone*: anything sent in the same burst is
    consumed by the `exec`.
+4. **Strip `\e[?2004h`/`\e[?2004l` too.** Bracketed-paste sequences contain a
+   `?`, so the obvious `s/\x1b\[[0-9;]*[a-zA-Z]//g` leaves them attached to the
+   front of the line and every `^SENTINEL`-anchored `sed` range silently
+   produces nothing.
+5. **`install.sh` ends with `reboot`, which races the harness's
+   `echo HARNESS_RC=$?`.** The echo won one run and lost the next, leaving the
+   harness blocked on a sentinel that could never appear. `reboot-shim.sh` is
+   put first on `PATH` for the installer run only: it copies `inst.log` onto the
+   target filesystem (still mounted at `/mnt`) and prints a deterministic
+   sentinel before handing off to the real `/usr/bin/reboot`.
