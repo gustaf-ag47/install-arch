@@ -56,8 +56,16 @@ user_and_groups() {
 	if ! id "$USERNAME" &>/dev/null; then
 		useradd -m -g wheel -s /bin/bash "$USERNAME"
 		echo "$USERNAME:$PASSWORD" | chpasswd
-		echo "$SUDOERS" >/etc/sudoers.d/username_wheel
 	fi
+
+	# Outside the guard on purpose. This used to sit inside it, so a re-run --
+	# or any install where the user already existed -- skipped the sudoers drop
+	# entirely. Everything downstream that calls sudo (set_keymap, the AUR
+	# queue, docker/bluetooth/tailscale enablement) then failed with
+	# "sudo: a password is required" and took the whole post-install down.
+	echo "$SUDOERS" >/etc/sudoers.d/username_wheel
+	chmod 0440 /etc/sudoers.d/username_wheel
+	visudo -cf /etc/sudoers.d/username_wheel >/dev/null
 }
 
 change_shell() {
