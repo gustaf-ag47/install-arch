@@ -1,5 +1,7 @@
 backup,syncthing,open source continuous replication / cluster synchronization thing
 backup,rsync,fast incremental file transfer (required by dotfiles make install)
+security,age,modern file encryption (bootstrap kit decryption)
+security,age-plugin-yubikey,yubikey adapter for age (production unlock factor)
 bluetooth,bluez,bluetooth protocol stack
 bluetooth,bluez-utils,bluetoothctl utility
 control,brightnessctl,control backlight

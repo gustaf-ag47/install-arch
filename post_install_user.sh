@@ -134,8 +134,43 @@ install_node() {
 	curl -fsSL https://fnm.vercel.app/install | bash -s -- --install-dir "./.fnm" --skip-shell
 }
 
+restore_bootstrap_kit() {
+	# Tier 0: decrypt the committed bootstrap kit and place the machine identity
+	# (Syncthing cert/key/config, SSH keys, tokens) before anything that needs
+	# them. Everything else arrives afterwards via Syncthing.
+	#
+	# Unlocking is a port with swappable adapters (see dotfiles bin/bootstrap-kit):
+	# a YubiKey in production, a plain age identity file in tests. Selection is
+	# automatic, so nothing here changes when the adapter changes.
+	local kit_bin="$HOME/.local/bin/bootstrap-kit"
+	local kit="${BOOTSTRAP_KIT:-$HOME/sync/src/dotfiles/secrets/bootstrap.tar.age}"
+
+	if [ ! -x "$kit_bin" ]; then
+		echo "bootstrap-kit not installed, skipping identity restore"
+		return 0
+	fi
+	if [ ! -f "$kit" ]; then
+		echo "no bootstrap kit at $kit, skipping identity restore"
+		return 0
+	fi
+
+	sudo pacman -S --noconfirm --needed age >/dev/null 2>&1 || true
+
+	# Prove the available adapter can actually open the kit before touching the
+	# filesystem, so a missing YubiKey fails loudly here rather than halfway
+	# through placing files.
+	if ! "$kit_bin" verify "$kit"; then
+		echo "WARNING: no adapter can decrypt the bootstrap kit; skipping restore" >&2
+		echo "  plug in your YubiKey, or set BOOTSTRAP_ADAPTER/BOOTSTRAP_FILE_IDENTITY" >&2
+		return 0
+	fi
+
+	"$kit_bin" restore "$kit"
+}
+
 main() {
 	install_dotfiles
+	restore_bootstrap_kit
 	set_keymap
 	process_aur_queue
 	install_bluetooth
