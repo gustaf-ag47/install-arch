@@ -134,6 +134,14 @@ install_node() {
 	curl -fsSL https://fnm.vercel.app/install | bash -s -- --install-dir "./.fnm" --skip-shell
 }
 
+enable_smartcard() {
+	# age-plugin-yubikey talks to the key over PC/SC. The pcsclite package ships
+	# pcscd.socket DISABLED by default on Arch, so on a fresh machine the plugin
+	# finds no reader, the yubikey adapter fails, and the bootstrap kit is
+	# silently skipped. Enable the socket before anything needs the key.
+	sudo systemctl enable --now pcscd.socket 2>/dev/null || true
+}
+
 restore_bootstrap_kit() {
 	# Tier 0: decrypt the committed bootstrap kit and place the machine identity
 	# (Syncthing cert/key/config, SSH keys, tokens) before anything that needs
@@ -170,6 +178,7 @@ restore_bootstrap_kit() {
 
 main() {
 	install_dotfiles
+	enable_smartcard
 	restore_bootstrap_kit
 	set_keymap
 	process_aur_queue
