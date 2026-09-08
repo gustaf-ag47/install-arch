@@ -143,56 +143,28 @@ enable_smartcard() {
 }
 
 restore_bootstrap_kit() {
-	# Tier 0: decrypt the committed bootstrap kit and place the machine identity
-	# (Syncthing cert/key/config, SSH keys, tokens) before anything that needs
-	# them. Everything else arrives afterwards via Syncthing.
+	# Tier 0: place the machine identity (Syncthing cert/key/config, SSH keys,
+	# tokens) before anything needs it. Everything else arrives via Syncthing.
 	#
-	# Unlocking is a port with swappable adapters (see dotfiles bin/bootstrap-kit):
-	# a YubiKey in production, a plain age identity file in tests. Selection is
-	# automatic, so nothing here changes when the adapter changes.
+	# All the hard parts -- which unlock adapter is available, whether it needs
+	# to prompt, whether there is a terminal to prompt on, what that will cost
+	# the human -- live behind `bootstrap-kit preflight`, so they are testable
+	# without a VM and stay in one repo.
 	local kit_bin="$HOME/.local/bin/bootstrap-kit"
 	local kit="${BOOTSTRAP_KIT:-$HOME/sync/src/dotfiles/secrets/bootstrap.tar.age}"
 
-	if [ ! -x "$kit_bin" ]; then
-		echo "bootstrap-kit not installed, skipping identity restore"
-		return 0
-	fi
-	if [ ! -f "$kit" ]; then
-		echo "no bootstrap kit at $kit, skipping identity restore"
-		return 0
-	fi
-
+	[ -x "$kit_bin" ] || { echo "bootstrap-kit not installed, skipping identity restore"; return 0; }
 	sudo pacman -S --noconfirm --needed age >/dev/null 2>&1 || true
 
-	# An interactive adapter (YubiKey PIN, or a passphrase) reads from the
-	# terminal, so this needs a tty. Verified: it works under a pty even with
-	# stdout redirected, but fails outright when stdin is closed. A fully
-	# non-interactive install therefore cannot unlock the kit -- it will warn
-	# and skip below rather than hang.
-	# /dev/tty EXISTS as a device node even with no controlling terminal, so
-	# testing -e is useless; it has to be opened. Opening it fails with ENXIO
-	# when the process has no controlling tty, which is exactly the case we
-	# need to detect.
-	if [ ! -t 0 ] && ! { : </dev/tty; } 2>/dev/null; then
-		echo "WARNING: no terminal available; cannot prompt for a PIN/passphrase" >&2
-		echo "  re-run this step from a console to restore the bootstrap kit" >&2
+	echo "Checking whether the bootstrap kit can be unlocked..."
+	if ! "$kit_bin" preflight "$kit"; then
+		echo "WARNING: skipping identity restore (see reason above)" >&2
 		return 0
 	fi
 
-	echo "About to unlock the bootstrap kit."
-	echo "  If you are using a YubiKey it will ask for a PIN and blink for a touch"
-	echo "  TWICE: once to check it can decrypt, once to actually restore."
-
-	# Prove the available adapter can actually open the kit before touching the
-	# filesystem, so a missing YubiKey fails loudly here rather than halfway
-	# through placing files. Costs one extra touch; worth it to avoid a
-	# half-restored identity.
-	if ! "$kit_bin" verify "$kit"; then
-		echo "WARNING: no adapter can decrypt the bootstrap kit; skipping restore" >&2
-		echo "  plug in your YubiKey, or set BOOTSTRAP_ADAPTER/BOOTSTRAP_FILE_IDENTITY" >&2
-		return 0
-	fi
-
+	# No separate verify pass: restore unlocks into a staging dir and only
+	# places files afterwards, so a failed decrypt cannot half-restore an
+	# identity. Verifying first would cost a second PIN prompt and touch.
 	"$kit_bin" restore "$kit"
 }
 
