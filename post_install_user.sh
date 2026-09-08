@@ -164,9 +164,29 @@ restore_bootstrap_kit() {
 
 	sudo pacman -S --noconfirm --needed age >/dev/null 2>&1 || true
 
+	# An interactive adapter (YubiKey PIN, or a passphrase) reads from the
+	# terminal, so this needs a tty. Verified: it works under a pty even with
+	# stdout redirected, but fails outright when stdin is closed. A fully
+	# non-interactive install therefore cannot unlock the kit -- it will warn
+	# and skip below rather than hang.
+	# /dev/tty EXISTS as a device node even with no controlling terminal, so
+	# testing -e is useless; it has to be opened. Opening it fails with ENXIO
+	# when the process has no controlling tty, which is exactly the case we
+	# need to detect.
+	if [ ! -t 0 ] && ! { : </dev/tty; } 2>/dev/null; then
+		echo "WARNING: no terminal available; cannot prompt for a PIN/passphrase" >&2
+		echo "  re-run this step from a console to restore the bootstrap kit" >&2
+		return 0
+	fi
+
+	echo "About to unlock the bootstrap kit."
+	echo "  If you are using a YubiKey it will ask for a PIN and blink for a touch"
+	echo "  TWICE: once to check it can decrypt, once to actually restore."
+
 	# Prove the available adapter can actually open the kit before touching the
 	# filesystem, so a missing YubiKey fails loudly here rather than halfway
-	# through placing files.
+	# through placing files. Costs one extra touch; worth it to avoid a
+	# half-restored identity.
 	if ! "$kit_bin" verify "$kit"; then
 		echo "WARNING: no adapter can decrypt the bootstrap kit; skipping restore" >&2
 		echo "  plug in your YubiKey, or set BOOTSTRAP_ADAPTER/BOOTSTRAP_FILE_IDENTITY" >&2
