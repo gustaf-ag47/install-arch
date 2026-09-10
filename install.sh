@@ -23,7 +23,10 @@ if [ -n "$PROFILE" ]; then
 	. /tmp/profile.env
 fi
 
-HOSTNAME="${HOSTNAME:-${PROFILE_HOSTNAME:-}}"
+# NOT "HOSTNAME": bash sets that automatically to the CURRENT machine's name,
+# so ${HOSTNAME:-...} silently resolved to the live ISO's "archiso" and the
+# profile value was never used. Override with TARGET_HOSTNAME.
+HOSTNAME="${TARGET_HOSTNAME:-${PROFILE_HOSTNAME:-}}"
 ROOT_PASSWORD="${ROOT_PASSWORD:-}"
 ENCRYPTION_PASSWORD="${ENCRYPTION_PASSWORD:-}"
 # GiB, converted to MiB below. This used to be a bare "8" spliced straight into
@@ -35,7 +38,7 @@ HARD_DRIVE="${HARD_DRIVE:-${PROFILE_DISK:-}}"
 # Refuse to guess. Each of these either wipes the wrong disk or leaves a machine
 # whose full-disk encryption passphrase is published in a public git repo.
 : "${HARD_DRIVE:?set PROFILE=<name> or HARD_DRIVE=/dev/... -- refusing to guess which disk to partition}"
-: "${HOSTNAME:?set PROFILE=<name> or HOSTNAME=...}"
+: "${HOSTNAME:?set PROFILE=<name> or TARGET_HOSTNAME=...}"
 : "${ROOT_PASSWORD:?set ROOT_PASSWORD -- there is deliberately no default}"
 : "${ENCRYPTION_PASSWORD:?set ENCRYPTION_PASSWORD -- there is deliberately no default}"
 
