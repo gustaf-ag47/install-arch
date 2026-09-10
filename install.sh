@@ -9,11 +9,39 @@ set -x
 # Overridable so a test harness can point at a local tree instead of GitHub.
 INSTALLER_URL="${INSTALLER_URL:-https://raw.githubusercontent.com/gustaf-ag47/install-arch/master}"
 
-HOSTNAME="arch"
-ROOT_PASSWORD="pass"
-ENCRYPTION_PASSWORD="pass"
-SWAP_SIZE=8
-HARD_DRIVE="/dev/sda"
+# Machine facts come from a profile in the dotfiles repo (profiles/<name>.env),
+# so a machine is described in ONE place and the same file drives both the
+# install and the later config linking. See dotfiles/profiles/README.md.
+#
+# PROFILE=<name> is fetched over the network; PROFILE_URL overrides the source.
+PROFILE="${PROFILE:-}"
+PROFILE_URL="${PROFILE_URL:-https://raw.githubusercontent.com/gustaf-ag47/dotfiles/master/profiles}"
+if [ -n "$PROFILE" ]; then
+	echo "Fetching profile: $PROFILE"
+	curl -fsSL "$PROFILE_URL/$PROFILE.env" -o /tmp/profile.env
+	# shellcheck disable=SC1091
+	. /tmp/profile.env
+fi
+
+HOSTNAME="${HOSTNAME:-${PROFILE_HOSTNAME:-}}"
+ROOT_PASSWORD="${ROOT_PASSWORD:-}"
+ENCRYPTION_PASSWORD="${ENCRYPTION_PASSWORD:-}"
+# GiB, converted to MiB below. This used to be a bare "8" spliced straight into
+# a MiB-denominated parted call, which produced an 8 MiB swap partition.
+SWAP_GIB="${SWAP_GIB:-${PROFILE_SWAP_GIB:-8}}"
+SWAP_SIZE=$((SWAP_GIB * 1024))
+HARD_DRIVE="${HARD_DRIVE:-${PROFILE_DISK:-}}"
+
+# Refuse to guess. Each of these either wipes the wrong disk or leaves a machine
+# whose full-disk encryption passphrase is published in a public git repo.
+: "${HARD_DRIVE:?set PROFILE=<name> or HARD_DRIVE=/dev/... -- refusing to guess which disk to partition}"
+: "${HOSTNAME:?set PROFILE=<name> or HOSTNAME=...}"
+: "${ROOT_PASSWORD:?set ROOT_PASSWORD -- there is deliberately no default}"
+: "${ENCRYPTION_PASSWORD:?set ENCRYPTION_PASSWORD -- there is deliberately no default}"
+
+[ -b "$HARD_DRIVE" ] || { echo "error: $HARD_DRIVE is not a block device" >&2; exit 1; }
+echo "About to ERASE $HARD_DRIVE ($(lsblk -dno SIZE "$HARD_DRIVE" 2>/dev/null | tr -d ' '))"
+echo "  hostname=$HOSTNAME swap=${SWAP_GIB}GiB"
 
 BOOT_PARTITION=1
 SWAP_PARTITION=2
