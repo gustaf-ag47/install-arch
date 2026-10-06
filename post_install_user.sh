@@ -77,6 +77,25 @@ dotfiles_dir() {
 	fi
 }
 
+apply_system_layer() {
+	# Root-owned machine setup -- GPU drivers, /etc files, kernel parameters,
+	# services -- from dotfiles' system/ layer, keyed on the same profile that
+	# chose the disk (the hostname). This replaces the hand-made steps that used
+	# to live only in dotfiles' CLAUDE.md. GPU drivers come from here now, not
+	# apps.csv, so an Intel-only laptop no longer gets nvidia-open.
+	#
+	# Not fatal: a failure here leaves a usable system that `make install-system`
+	# can finish later, and must not abort the rest of the post-install.
+	local script
+	script="$(dotfiles_dir)/scripts/install-system.sh"
+	if [ ! -f "$script" ]; then
+		echo "warning: $script not found (old dotfiles ref?), skipping system layer" >&2
+		return 0
+	fi
+	sudo bash "$script" --apply ||
+		echo "warning: system layer incomplete; re-run: sudo $script --apply" >&2
+}
+
 bootstrap_sync() {
 	# Bootstrap Syncthing with YubiKey-encrypted config
 	# This sets up sync with existing machines
@@ -170,6 +189,7 @@ restore_bootstrap_kit() {
 
 main() {
 	install_dotfiles
+	apply_system_layer
 	enable_smartcard
 	restore_bootstrap_kit
 	set_keymap
