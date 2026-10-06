@@ -43,6 +43,10 @@ process_aur_queue() {
 	}
 
 	install_aur_queue() {
+		# No queue file when every apps.csv package came from the repos (the
+		# normal case since apps.csv is only the bootstrap set). `cat` on the
+		# missing file aborted the whole post-install under set -euo pipefail.
+		[ -f /tmp/aur_queue ] || return 0
 		cat /tmp/aur_queue | while read -r line; do
 			aur_check "$line"
 		done
