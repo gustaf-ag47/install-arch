@@ -387,4 +387,11 @@ echo "screendump /tmp/arch-e2e-final.ppm" | qm monitor "$VMID" >/dev/null
 sleep 3
 ls -la /tmp/arch-e2e-final.ppm
 
+# pve is CPU-saturated; a forgotten 6-core test VM starves CI and prod VMs
+# (left running ~2 h on 2026-10-06). KEEP_VM=1 keeps it up for inspection.
+if [ "${KEEP_VM:-0}" != "1" ]; then
+	say "stopping VM $VMID (set KEEP_VM=1 to keep it running)"
+	qm stop "$VMID" >/dev/null 2>&1 || true
+fi
+
 say "DONE"
