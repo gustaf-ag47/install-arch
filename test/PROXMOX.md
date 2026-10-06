@@ -51,7 +51,6 @@ the dotfiles **profiles** too, and pin the dotfiles branch under test:
 
 ```bash
 J="ssh -J gud1@skrubben"; P=root@192.168.1.122
-
 rm -rf /tmp/dotfiles.git && git clone -q --bare ../dotfiles /tmp/dotfiles.git
 git -C /tmp/dotfiles.git update-server-info
 rsync -a --delete --exclude .git --exclude dotfiles.git --exclude profiles -e "$J" ./ $P:/root/install-arch-test/
