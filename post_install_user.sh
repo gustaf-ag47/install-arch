@@ -38,7 +38,11 @@ process_aur_queue() {
 
 	install_paru() {
 		if ! pacman -Qs paru >/dev/null; then
-			cd /tmp && aur_install paru-bin
+			# The source package, not paru-bin: paru-bin is a prebuilt binary
+			# that lags pacman's ABI. In 2026-10 it still linked libalpm.so.15
+			# while pacman shipped .16, so it could not even start and every
+			# AUR package of the machine's roles was skipped (Proxmox e2e).
+			cd /tmp && aur_install paru
 		fi
 	}
 
