@@ -92,7 +92,9 @@ apply_system_layer() {
 		echo "warning: $script not found (old dotfiles ref?), skipping system layer" >&2
 		return 0
 	fi
-	sudo bash "$script" --apply ||
+	# From /, not the caller's cwd: install_dotfiles left us in ~/dotfiles,
+	# which `make install` has since moved to $DOTFILES and deleted.
+	(cd / && sudo bash "$script" --apply) ||
 		echo "warning: system layer incomplete; re-run: sudo $script --apply" >&2
 }
 
