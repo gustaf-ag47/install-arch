@@ -110,6 +110,10 @@ format_partition() {
 }
 
 mount_file_system() {
+	# mkfs closes the partitions it just wrote, which makes udev re-probe them
+	# (the "watch" rule). Mounting inside that window intermittently failed
+	# with exit 32 on the vfat ESP of a UEFI e2e run; wait for udev first.
+	udevadm settle
 	mount /dev/mapper/root /mnt
 	mount --mkdir "${HARD_DRIVE}${BOOT_PARTITION}" /mnt/boot
 	[ -n "$SWAP_SIZE" ] && swapon "${HARD_DRIVE}${SWAP_PARTITION}"

@@ -26,10 +26,14 @@ install-arch/test/qemu-vm.sh            # full-metal VM (needs /dev/kvm)
 
 ## What the container layer canNOT test (needs L3 / real hardware)
 
-Disk partitioning, LUKS, GRUB/boot, systemd as PID1, and everything in
-`CLAUDE.md`'s "system-level files must be created manually" section (NVIDIA
-suspend, logind, GRUB cmdline, `hyprland-sigstop`, `hid-annepro2` DKMS). None of
-that is scripted yet — a fresh machine still needs those steps by hand.
+Disk partitioning, LUKS, GRUB/boot and systemd as PID1.
+
+The root-side machine setup (NVIDIA suspend, logind, GRUB cmdline,
+`hyprland-sigstop`, `hid-annepro2` DKMS, Wi-Fi workarounds) is no longer
+manual: it lives in dotfiles' `system/` layer and `post_install_user.sh`
+applies it with `scripts/install-system.sh --apply`. Its logic is tested in
+dotfiles (`tests/system-layer.sh`, fake root); the real `--apply` (pacman,
+mkinitcpio, grub-mkconfig, dkms) only runs under L3 or on hardware.
 
 ## Bugs this harness found and fixed
 

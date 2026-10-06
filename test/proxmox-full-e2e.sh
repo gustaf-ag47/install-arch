@@ -30,6 +30,26 @@ LUKS_PW=pass
 ROOT_PW=pass
 NEWUSER="${NEWUSER:-gustaf}"
 NEWPW="${NEWPW:-testpass}"
+
+# Machine under test. install-arch is profile-driven: PROFILE picks the
+# dotfiles profiles/<name>.env (served from $BASE/profiles so the branch under
+# test is what runs), and its PROFILE_HOSTNAME decides which profile every
+# later stage (make install, install-system.sh) resolves.
+PROFILE="${PROFILE:-arch-e2e}"
+PROFILE_URL="${PROFILE_URL:-$BASE/profiles}"
+GUEST_HOST="${GUEST_HOST:-$PROFILE}"  # = PROFILE_HOSTNAME of that profile
+# The VM's disk is virtio-scsi (/dev/sda) whatever the profile says, and a
+# laptop profile's swap (16 GiB) would eat most of a test disk.
+HARD_DRIVE="${HARD_DRIVE:-/dev/sda}"
+SWAP_GIB="${SWAP_GIB:-2}"
+DISK_GB="${DISK_GB:-20}"
+DOTFILES_REF="${DOTFILES_REF:-master}"
+# bios (SeaBIOS) or uefi (OVMF, Secure Boot off -- matches real laptops).
+FIRMWARE="${FIRMWARE:-bios}"
+# Where the ISO is attached. Under OVMF the live kernel's ata_piix finds the
+# IDE channels but never the CD-ROM ("ARCH_xxxx device did not show up"), so
+# UEFI runs put it on the virtio-scsi bus the disk already uses.
+if [ "$FIRMWARE" = uefi ]; then CDROM="${CDROM:-scsi1}"; else CDROM="${CDROM:-ide2}"; fi
 INSTALL_TIMEOUT="${INSTALL_TIMEOUT:-2400}"
 POST_TIMEOUT="${POST_TIMEOUT:-3600}"
 
@@ -57,26 +77,45 @@ detach() {
 	sleep 1
 }
 trap detach EXIT
+# Each phase starts its log empty (so waits cannot match an earlier phase), but
+# keep the whole serial history in $LOG.all for post-mortems.
+resetlog() {
+	[ -f "$LOG" ] && cat "$LOG" >>"$LOG.all"
+	: >"$LOG"
+}
 
 ##############################################################################
 say "PHASE 0: wiping VM $VMID's disk (genuinely blank drive)"
+rm -f "$LOG" "$LOG.all"
 qm stop "$VMID" >/dev/null 2>&1
 sleep 5
-for d in scsi0 unused0 unused1 unused2; do
+for d in scsi0 efidisk0 unused0 unused1 unused2 unused3; do
 	qm disk unlink "$VMID" --idlist "$d" --force 1 >/dev/null 2>&1
 done
 sleep 2
-qm set "$VMID" --scsi0 local-lvm:20 || exit 1
-qm set "$VMID" --ide2 "$ISO,media=cdrom" --boot order=scsi0 --vga std --serial0 socket || exit 1
+# CD-ROM slots: plain --delete (NOT the unlink --force loop above, which would
+# delete the ISO volume itself).
+qm set "$VMID" --delete ide2 >/dev/null 2>&1
+qm set "$VMID" --delete scsi1 >/dev/null 2>&1
+qm set "$VMID" --scsi0 "local-lvm:$DISK_GB" || exit 1
+if [ "$FIRMWARE" = uefi ]; then
+	# Fresh EFI vars disk each run: stale boot entries from a previous install
+	# must not be what makes the new one boot. pre-enrolled-keys=0 = Secure
+	# Boot off, as install-arch's unsigned GRUB requires.
+	qm set "$VMID" --bios ovmf --efidisk0 local-lvm:1,efitype=4m,pre-enrolled-keys=0 || exit 1
+else
+	qm set "$VMID" --bios seabios || exit 1
+fi
+qm set "$VMID" --"$CDROM" "$ISO,media=cdrom" --boot order=scsi0 --vga std --serial0 socket || exit 1
 qm set "$VMID" --args "-kernel /var/lib/vz/template/iso/archboot/vmlinuz-linux \
 -initrd /var/lib/vz/template/iso/archboot/initramfs-linux.img \
 -append \"archisobasedir=arch archisolabel=$ISOLABEL console=ttyS0,115200 rw\"" || exit 1
 echo "  disk re-created blank:"
-qm config "$VMID" | grep -E '^(scsi0|ide2|args|vga|boot)'
+qm config "$VMID" | grep -E '^(scsi[01]|efidisk0|bios|ide2|args|vga|boot)'
 
 ##############################################################################
 say "PHASE 1: booting live ISO and running the real installer"
-: >"$LOG"
+resetlog
 qm start "$VMID" || exit 1
 sleep 5
 attach
@@ -89,6 +128,10 @@ send "root"
 sleep 3
 send "exec bash --norc --noprofile"
 sleep 3
+# Interactive bash expands `!` even inside double quotes: phase 2's
+# "^root:[^!*]" check became "^root:[^<previous args>]" and printed nothing.
+send "set +H"
+sleep 1
 send 'echo P1_""READY'
 waitre "P1_READY" 60 || {
 	echo "FAIL: no shell"
@@ -119,7 +162,7 @@ waitre "SHIM_OK" 60 || {
 	echo "FAIL: could not install the reboot shim"
 	exit 1
 }
-send "PATH=/root/bin:\$PATH INSTALLER_URL='$BASE' bash /root/install.sh > /root/inst.log 2>&1; echo HARNESS_\"\"RC=\$? INSTALL_\"\"FINISHED"
+send "PATH=/root/bin:\$PATH INSTALLER_URL='$BASE' PROFILE='$PROFILE' PROFILE_URL='$PROFILE_URL' HARD_DRIVE='$HARD_DRIVE' SWAP_GIB='$SWAP_GIB' ROOT_PASSWORD='$ROOT_PW' ENCRYPTION_PASSWORD='$LUKS_PW' bash /root/install.sh > /root/inst.log 2>&1; echo HARNESS_\"\"RC=\$? INSTALL_\"\"FINISHED"
 if waitre 'HARNESS_RC=[0-9]|INSTALLER_REACHED_REBOOT' "$INSTALL_TIMEOUT"; then
 	INST_RC=$(strip <"$LOG" | grep -aoE 'HARNESS_RC=[0-9]+' | tail -1)
 	say "INSTALLER COMPLETED: ${INST_RC:-reached its reboot step under set -euo pipefail}"
@@ -134,7 +177,7 @@ detach
 say "PHASE 2: rebooting into the live ISO to inspect the installed system"
 qm stop "$VMID" >/dev/null 2>&1
 sleep 5
-: >"$LOG"
+resetlog
 qm start "$VMID" || exit 1
 sleep 5
 attach
@@ -147,6 +190,10 @@ send "root"
 sleep 3
 send "exec bash --norc --noprofile"
 sleep 3
+# Interactive bash expands `!` even inside double quotes: phase 2's
+# "^root:[^!*]" check became "^root:[^<previous args>]" and printed nothing.
+send "set +H"
+sleep 1
 send 'echo P2_""READY'
 waitre "P2_READY" 60 || {
 	echo "FAIL: no shell (phase 2)"
@@ -195,9 +242,9 @@ say "PHASE 2b: booting the INSTALLED system from disk"
 qm stop "$VMID" >/dev/null 2>&1
 sleep 5
 qm set "$VMID" --delete args >/dev/null 2>&1
-qm set "$VMID" --delete ide2 >/dev/null 2>&1
+qm set "$VMID" --delete "$CDROM" >/dev/null 2>&1
 qm set "$VMID" --boot order=scsi0 --vga std >/dev/null 2>&1
-: >"$LOG"
+resetlog
 qm start "$VMID" || exit 1
 sleep 6
 attach
@@ -209,12 +256,12 @@ waitre "Enter passphrase" 240 || {
 }
 echo "  OK   LUKS passphrase prompt appeared"
 send "$LUKS_PW"
-waitre "arch login:" 300 || {
+waitre "$GUEST_HOST login:" 300 || {
 	echo "FAIL: LUKS unlock / boot to userspace"
 	strip <"$LOG" | tail -30
 	exit 1
 }
-echo "  OK   LUKS unlock succeeded, reached 'arch login:'"
+echo "  OK   LUKS unlock succeeded, reached '$GUEST_HOST login:'"
 
 send "root"
 sleep 2
@@ -222,6 +269,10 @@ send "$ROOT_PW"
 sleep 5
 send "exec bash --norc --noprofile"
 sleep 3
+# Interactive bash expands `!` even inside double quotes: phase 2's
+# "^root:[^!*]" check became "^root:[^<previous args>]" and printed nothing.
+send "set +H"
+sleep 1
 send 'echo INST_""READY'
 waitre "INST_READY" 90 || {
 	echo "FAIL: root login on installed system"
@@ -245,7 +296,7 @@ waitre "PIR_FETCHED" 90 || {
 }
 # `yes n |`: bootstrap_sync() in post_install_user.sh ends with an interactive
 # `read -p "Run Syncthing bootstrap now?"`. Unattended, answer no.
-send "yes n | env USERNAME=$NEWUSER PASSWORD=$NEWPW INSTALLER_URL=$BASE DOTFILES_REPO=$DOTFILES_REPO bash /root/pir.sh > /root/pir.log 2>&1; echo PIR_\"\"RC=\$? PIR_\"\"FINISHED"
+send "yes n | env USERNAME=$NEWUSER PASSWORD=$NEWPW INSTALLER_URL=$BASE DOTFILES_REPO=$DOTFILES_REPO DOTFILES_REF=$DOTFILES_REF bash /root/pir.sh > /root/pir.log 2>&1; echo PIR_\"\"RC=\$? PIR_\"\"FINISHED"
 if waitre 'PIR_RC=[0-9]' "$POST_TIMEOUT"; then
 	PIR_RC=$(strip <"$LOG" | grep -aoE 'PIR_RC=[0-9]+' | tail -1)
 	say "post_install_root.sh RETURNED: $PIR_RC"
@@ -274,10 +325,52 @@ getent passwd $NEWUSER | grep -q zsh && echo 'OK   login shell is zsh' || echo '
 [ -f /home/$NEWUSER/.config/tmux/tmux.conf ] && echo 'OK   tmux.conf resolves' || echo 'FAIL tmux.conf'; \
 n=\$(find /home/$NEWUSER/.config -maxdepth 2 -xtype l 2>/dev/null | wc -l); [ \"\$n\" = 0 ] && echo 'OK   0 broken symlinks' || echo \"FAIL \$n broken symlinks\"; \
 find /home/$NEWUSER/.config -maxdepth 2 -xtype l 2>/dev/null; \
-echo 'INFO dotfiles HEAD:' \$(git -C /home/$NEWUSER/sync/src/dotfiles log --oneline -1 2>&1); \
+echo 'INFO dotfiles HEAD:' \$(git -c safe.directory=\\* -C /home/$NEWUSER/sync/src/dotfiles log --oneline -1 2>&1); \
 echo A_\"\"E"
 waitre 'A_E' 240
 strip <"$LOG" | sed -n '/^A_S/,/^A_E/p' | grep -E '^(OK|FAIL|INFO|/home)'
+
+say "SYSTEM LAYER ASSERTIONS (post-install)"
+send "curl -fsSL $BASE/test/system-assertions.sh | bash -s -- $NEWUSER post-install 2>&1 | sed 's/^/@@/'; echo SA_\"\"E"
+waitre 'SA_E' 600
+strip <"$LOG" | grep -aE '^@@(OK|FAIL|INFO|  )' | sed 's/^@@/  /'
+
+##############################################################################
+say "PHASE 3b: reboot the post-installed system (new initramfs + kernel params)"
+resetlog
+send "systemctl reboot"
+waitre "Enter passphrase" 300 || {
+	echo "FAIL: no LUKS prompt after the post-install reboot"
+	strip <"$LOG" | tail -30
+	exit 1
+}
+send "$LUKS_PW"
+waitre "$GUEST_HOST login:" 300 || {
+	echo "FAIL: post-install system did not reach a login prompt"
+	strip <"$LOG" | tail -30
+	exit 1
+}
+echo "  OK   post-installed system boots to '$GUEST_HOST login:'"
+send "root"
+sleep 2
+send "$ROOT_PW"
+sleep 5
+send "exec bash --norc --noprofile"
+sleep 3
+# Interactive bash expands `!` even inside double quotes: phase 2's
+# "^root:[^!*]" check became "^root:[^<previous args>]" and printed nothing.
+send "set +H"
+sleep 1
+send 'echo RB_""READY'
+waitre "RB_READY" 90 || {
+	echo "FAIL: root login after reboot"
+	exit 1
+}
+# Let intel-cvs-late's 20 s wait (no SoundWire in a VM) run out first.
+sleep 30
+send "curl -fsSL $BASE/test/system-assertions.sh | bash -s -- $NEWUSER after-reboot 2>&1 | sed 's/^/@@/'; echo SB_\"\"E"
+waitre 'SB_E' 300
+strip <"$LOG" | grep -aE '^@@(OK|FAIL|INFO|  )' | sed 's/^@@/  /'
 
 ##############################################################################
 say "PHASE 4: logging in on tty1 for a VGA screendump"

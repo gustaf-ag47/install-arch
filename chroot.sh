@@ -34,6 +34,17 @@ network_configuration() {
 }
 
 initramfs() {
+	# Intel VMD ("RAID On" in Dell BIOSes, the factory default on some XPS
+	# models) puts the NVMe drive behind the vmd driver. Without it in the
+	# initramfs the encrypted root is invisible at boot. The live ISO has the
+	# same kernel, so the module being loaded right now means VMD is active.
+	# Setting the BIOS to "AHCI/NVMe" is the clean fix; this is the safety net.
+	if [ -d /sys/module/vmd ]; then
+		mkdir -p /etc/mkinitcpio.conf.d
+		echo 'MODULES+=(vmd)' >/etc/mkinitcpio.conf.d/vmd.conf
+		echo "Intel VMD active: added vmd to the initramfs"
+	fi
+
 	sed -i "s/^HOOKS=.*/HOOKS=(base udev keyboard autodetect modconf kms keymap consolefont block encrypt filesystems fsck)/g" /etc/mkinitcpio.conf
 	mkinitcpio -P
 }

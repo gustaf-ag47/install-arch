@@ -20,7 +20,6 @@ fonts,noto-fonts-emoji,emoji font
 fonts,otf-font-awesome,font awesome
 fonts,ttf-hack-nerd,hack nerd font
 gui,firefox,firefox
-gui,nvidia-open,nvidia drivers
 gui,obsidian,knowledge base
 gui,polkit-kde-agent,polkit agent
 gui,thunderbird,thunderbird
