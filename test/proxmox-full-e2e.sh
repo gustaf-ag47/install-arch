@@ -128,6 +128,10 @@ send "root"
 sleep 3
 send "exec bash --norc --noprofile"
 sleep 3
+# Interactive bash expands `!` even inside double quotes: phase 2's
+# "^root:[^!*]" check became "^root:[^<previous args>]" and printed nothing.
+send "set +H"
+sleep 1
 send 'echo P1_""READY'
 waitre "P1_READY" 60 || {
 	echo "FAIL: no shell"
@@ -186,6 +190,10 @@ send "root"
 sleep 3
 send "exec bash --norc --noprofile"
 sleep 3
+# Interactive bash expands `!` even inside double quotes: phase 2's
+# "^root:[^!*]" check became "^root:[^<previous args>]" and printed nothing.
+send "set +H"
+sleep 1
 send 'echo P2_""READY'
 waitre "P2_READY" 60 || {
 	echo "FAIL: no shell (phase 2)"
@@ -261,6 +269,10 @@ send "$ROOT_PW"
 sleep 5
 send "exec bash --norc --noprofile"
 sleep 3
+# Interactive bash expands `!` even inside double quotes: phase 2's
+# "^root:[^!*]" check became "^root:[^<previous args>]" and printed nothing.
+send "set +H"
+sleep 1
 send 'echo INST_""READY'
 waitre "INST_READY" 90 || {
 	echo "FAIL: root login on installed system"
@@ -345,6 +357,10 @@ send "$ROOT_PW"
 sleep 5
 send "exec bash --norc --noprofile"
 sleep 3
+# Interactive bash expands `!` even inside double quotes: phase 2's
+# "^root:[^!*]" check became "^root:[^<previous args>]" and printed nothing.
+send "set +H"
+sleep 1
 send 'echo RB_""READY'
 waitre "RB_READY" 90 || {
 	echo "FAIL: root login after reboot"
