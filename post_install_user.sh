@@ -38,11 +38,19 @@ process_aur_queue() {
 
 	install_paru() {
 		if ! pacman -Qs paru >/dev/null; then
-			cd /tmp && aur_install paru-bin
+			# The source package, not paru-bin: paru-bin is a prebuilt binary
+			# that lags pacman's ABI. In 2026-10 it still linked libalpm.so.15
+			# while pacman shipped .16, so it could not even start and every
+			# AUR package of the machine's roles was skipped (Proxmox e2e).
+			cd /tmp && aur_install paru
 		fi
 	}
 
 	install_aur_queue() {
+		# No queue file when every apps.csv package came from the repos (the
+		# normal case since apps.csv is only the bootstrap set). `cat` on the
+		# missing file aborted the whole post-install under set -euo pipefail.
+		[ -f /tmp/aur_queue ] || return 0
 		cat /tmp/aur_queue | while read -r line; do
 			aur_check "$line"
 		done
@@ -81,8 +89,9 @@ apply_system_layer() {
 	# Root-owned machine setup -- GPU drivers, /etc files, kernel parameters,
 	# services -- from dotfiles' system/ layer, keyed on the same profile that
 	# chose the disk (the hostname). This replaces the hand-made steps that used
-	# to live only in dotfiles' CLAUDE.md. GPU drivers come from here now, not
-	# apps.csv, so an Intel-only laptop no longer gets nvidia-open.
+	# to live only in dotfiles' CLAUDE.md. It also installs the machine's apps:
+	# the roles in PROFILE_ROLES (system/roles/*), official and AUR. apps.csv
+	# here is only the bootstrap set that this script itself needs.
 	#
 	# Not fatal: a failure here leaves a usable system that `make install-system`
 	# can finish later, and must not abort the rest of the post-install.
@@ -191,11 +200,14 @@ restore_bootstrap_kit() {
 
 main() {
 	install_dotfiles
-	apply_system_layer
 	enable_smartcard
 	restore_bootstrap_kit
 	set_keymap
+	# Installs paru (and anything from apps.csv that was not in the repos).
+	# Must precede apply_system_layer, which builds the profile's AUR packages
+	# with paru.
 	process_aur_queue
+	apply_system_layer
 	install_bluetooth
 	install_docker
 	install_tailscale
