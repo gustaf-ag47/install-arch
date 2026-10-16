@@ -4,8 +4,12 @@ set -x
 
 # Overridable so an unattended/test run can supply them without a TTY.
 USERNAME="${USERNAME:-}"
+# xtrace off around every use of the password: `set -x` prints expanded values
+# (firstboot.sh tees this script's output to /root/firstboot.log).
+{ set +x; } 2>/dev/null
 PASSWORD="${PASSWORD:-}"
 PASSWORD_CONFIRM=""
+set -x
 
 INSTALLER_URL="${INSTALLER_URL:-https://raw.githubusercontent.com/gustaf-ag47/install-arch/master}"
 SUDOERS="%wheel ALL=(ALL) NOPASSWD: ALL"
@@ -24,6 +28,7 @@ user_input() {
 		read -rp "Enter username: " USERNAME
 	done
 
+	{ set +x; } 2>/dev/null
 	while [ -z "$PASSWORD" ]; do
 		read -rsp "Enter password: " PASSWORD
 		echo
@@ -35,6 +40,7 @@ user_input() {
 			PASSWORD=""
 		fi
 	done
+	set -x
 }
 
 install_package() {
@@ -55,7 +61,9 @@ install_packages() {
 user_and_groups() {
 	if ! id "$USERNAME" &>/dev/null; then
 		useradd -m -g wheel -s /bin/bash "$USERNAME"
+		{ set +x; } 2>/dev/null
 		echo "$USERNAME:$PASSWORD" | chpasswd
+		set -x
 	fi
 
 	# Outside the guard on purpose. This used to sit inside it, so a re-run --
