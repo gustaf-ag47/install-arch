@@ -6,7 +6,10 @@ set -x
 HARD_DRIVE=$(cat /var_hard_drive)
 HOSTNAME="$(cat /var_hostname)"
 ROOT_PARTITION=$(cat /var_root_partition)
+# xtrace off around the secret: `set -x` prints `ROOT_PASSWORD=<value>`.
+{ set +x; } 2>/dev/null
 ROOT_PASSWORD=$(cat /var_root_password)
+set -x
 UEFI=$(cat /var_uefi)
 
 time_zone() {
@@ -50,7 +53,9 @@ initramfs() {
 }
 
 root_password() {
+	{ set +x; } 2>/dev/null
 	echo "root:$ROOT_PASSWORD" | chpasswd
+	set -x
 }
 
 boot_loader() {
